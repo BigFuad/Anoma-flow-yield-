@@ -1,3 +1,4 @@
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -638,20 +639,7 @@
       });
 
       learnBtn.addEventListener('click', ()=> {
-        // Replaced alert with a custom message box
-        const messageBox = document.createElement('div');
-        messageBox.style.cssText = `
-          position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-          background: var(--card-bg); padding: 20px; border-radius: 12px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10000;
-          max-width: 300px; text-align: center;
-        `;
-        messageBox.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 10px;">How it Works</div>
-          <div>This is a prototype UI. It simulates deposit and yield flows. No real transactions occur.</div>
-          <button style="margin-top: 15px;" class="btn primary" onclick="this.parentNode.remove()">OK</button>
-        `;
-        document.body.appendChild(messageBox);
+        alert('This is a prototype UI. It simulates deposit and yield flows. No real transactions occur.');
       });
 
       backToLanding.addEventListener('click', ()=> {
@@ -755,21 +743,12 @@
 
       // View deposits button
       viewDepositsBtn.addEventListener('click', ()=> {
+        if(state.deposits.length === 0){
+          alert('No active deposits');
+          return;
+        }
         const list = state.deposits.map((d,i)=>`${i+1}. ${formatAmt(d.amount)} ${d.token} ${d.fundedByXan?'(funded by XAN)':''} — ${new Date(d.ts).toLocaleString()}`).join('\n');
-        // Replaced alert with a custom message box
-        const messageBox = document.createElement('div');
-        messageBox.style.cssText = `
-          position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-          background: var(--card-bg); padding: 20px; border-radius: 12px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10000;
-          max-width: 300px; text-align: left; white-space: pre-wrap;
-        `;
-        messageBox.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 10px;">Active Deposits</div>
-          <div>${list || 'No active deposits'}</div>
-          <button style="margin-top: 15px;" class="btn primary" onclick="this.parentNode.remove()">OK</button>
-        `;
-        document.body.appendChild(messageBox);
+        alert('Active deposits:\n\n' + list);
       });
 
       // Earn Yield flow
@@ -780,65 +759,19 @@
           return;
         }
         let depositList = state.deposits.map((d,i)=>`${i+1}. ${formatAmt(d.amount)} ${d.token}${d.fundedByXan?' (funded by XAN)':''}`).join('\n');
-        // Replaced prompt with a custom message box with input
-        const promptBox = document.createElement('div');
-        promptBox.style.cssText = `
-          position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-          background: var(--card-bg); padding: 20px; border-radius: 12px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10000;
-          max-width: 300px; text-align: left; white-space: pre-wrap;
-        `;
-        promptBox.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 10px;">Select Deposit</div>
-          <div style="margin-bottom: 10px;">Enter the number of the deposit to apply ${method} to:</div>
-          <div>${depositList}</div>
-          <input type="number" id="promptInput" style="margin-top: 10px; width: 100%;">
-          <div style="margin-top: 15px; display: flex; gap: 10px;">
-            <button class="btn primary" id="promptOk">OK</button>
-            <button class="btn ghost" id="promptCancel">Cancel</button>
-          </div>
-        `;
-        document.body.appendChild(promptBox);
-
-        const promptInput = document.getElementById('promptInput');
-        promptInput.focus();
-
-        document.getElementById('promptOk').addEventListener('click', () => {
-          const pick = promptInput.value;
-          const idx = Number(pick) - 1;
-          if(isNaN(idx) || idx < 0 || idx >= state.deposits.length){
-            showToast('Invalid selection');
-          } else {
-            state.deposits[idx].method = method;
-            state.activity.push(`${method} started on ${formatAmt(state.deposits[idx].amount)} ${state.deposits[idx].token}`);
-            showToast(`${method} successful for ${formatAmt(state.deposits[idx].amount)} ${state.deposits[idx].token}`);
-            refreshUI();
-          }
-          promptBox.remove();
-        });
-
-        document.getElementById('promptCancel').addEventListener('click', () => {
-          showToast('Cancelled');
-          promptBox.remove();
-        });
+        const pick = prompt(`Select deposit to apply ${method} (enter number):\n\n${depositList}`);
+        if(!pick) { showToast('Cancelled'); return; }
+        const idx = Number(pick) - 1;
+        if(isNaN(idx) || idx < 0 || idx >= state.deposits.length){ showToast('Invalid selection'); return; }
+        state.deposits[idx].method = method;
+        state.activity.push(`${method} started on ${formatAmt(state.deposits[idx].amount)} ${state.deposits[idx].token}`);
+        showToast(`${method} successful for ${formatAmt(state.deposits[idx].amount)} ${state.deposits[idx].token}`);
+        refreshUI();
       });
 
       // Misc: how to learn about earn
       document.getElementById('learnYieldBtn').addEventListener('click', ()=> {
-        // Replaced alert with a custom message box
-        const messageBox = document.createElement('div');
-        messageBox.style.cssText = `
-          position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-          background: var(--card-bg); padding: 20px; border-radius: 12px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10000;
-          max-width: 300px; text-align: left;
-        `;
-        messageBox.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 10px;">How Yield Works</div>
-          <div>Stake: lock tokens to earn rewards.<br/><br/>Lend: supply tokens to borrowers for interest.<br/><br/>Provide Liquidity: add tokens to a pool to earn fees & rewards.</div>
-          <button style="margin-top: 15px;" class="btn primary" onclick="this.parentNode.remove()">OK</button>
-        `;
-        document.body.appendChild(messageBox);
+        alert('Stake: lock tokens to earn rewards.\nLend: supply tokens to borrowers for interest.\nProvide Liquidity: add tokens to a pool to earn fees & rewards.');
       });
 
       // Theme switch (light/dark)
@@ -891,4 +824,3 @@
   </script>
 </body>
 </html>
-
