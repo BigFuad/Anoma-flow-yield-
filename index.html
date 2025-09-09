@@ -33,7 +33,6 @@
     /* Monochrome mode (reduced color) */
     body.mono {
       --accent: #b71c1c;
-      filter: none; /* reserved for further styles */
     }
 
     *{box-sizing:border-box}
@@ -340,7 +339,6 @@
       .btn{ padding:10px 14px; font-size:13px; }
     }
 
-    /* subtle borders in light theme for contrast */
     body.light .card{ border:1px solid rgba(0,0,0,0.06); box-shadow:none }
   </style>
 </head>
@@ -442,7 +440,6 @@
                 <div style="margin-top:12px">
                   <label for="tokenSelect">Token</label>
                   <select id="tokenSelect">
-                    <!-- tokens from your list -->
                     <option value="USDT">USDT</option>
                     <option value="USDC">USDC</option>
                     <option value="XAN">XAN</option>
@@ -524,7 +521,7 @@
 
                 <div style="margin-top:10px">
                   <div style="display:flex;gap:8px;">
-                    <button class="btn ghost" id="withdrawBtn" style="flex:1">Withdraw</button>
+                    <button class="btn ghost" id="withdrawBtn" style="flex:1">Withdraw Last</button>
                     <button class="btn ghost" id="viewDepositsBtn" style="flex:1">View Deposits</button>
                   </div>
                 </div>
@@ -577,7 +574,7 @@
       // State
       const state = {
         xan: 500, // initial XAN balance
-        deposits: [], // { id, token, amount, method (optional), timestamp }
+        deposits: [], // { id, token, amount, method (optional), ts, fundedByXan: bool }
         activity: []
       };
 
@@ -610,7 +607,7 @@
             const it = document.createElement('div');
             it.className = 'item';
             it.innerHTML = `<div>
-                              <div style="font-weight:700">${formatAmt(d.amount)} ${d.token}</div>
+                              <div style="font-weight:700">${formatAmt(d.amount)} ${d.token} ${d.fundedByXan?'<span style=\"font-size:11px;color:var(--muted);margin-left:8px\">(funded by XAN)</span>':''}</div>
                               <small style="color:var(--muted)">${new Date(d.ts).toLocaleString()}</small>
                             </div>
                             <div style="text-align:right">
@@ -653,13 +650,30 @@
       // Deposit normal (simulated)
       depositBtn.addEventListener('click', ()=> {
         const token = tokenSelect.value;
-        const amount = Number(amountInput.value);
+        const amount = parseFloat(amountInput.value);
         if(!amount || amount <= 0){
           showToast('Enter a valid amount');
           return;
         }
-        // simulate deposit success (for non-XAN, we simply accept)
-        const depositObj = { id: id(), token, amount: amount, ts: Date.now() };
+
+        // If depositing XAN directly -> reduce balance and mark fundedByXan
+        if(token === 'XAN'){
+          if(state.xan < amount){
+            showToast('Insufficient XAN balance');
+            return;
+          }
+          state.xan -= amount;
+          const depositObj = { id: id(), token, amount: amount, ts: Date.now(), fundedByXan: true };
+          state.deposits.push(depositObj);
+          state.activity.push(`Deposited ${formatAmt(amount)} ${token} (from XAN)`);
+          showToast(`Deposit successful — ${formatAmt(amount)} ${token}`);
+          amountInput.value = '';
+          refreshUI();
+          return;
+        }
+
+        // Otherwise deposit other token (not funded by XAN)
+        const depositObj = { id: id(), token, amount: amount, ts: Date.now(), fundedByXan: false };
         state.deposits.push(depositObj);
         state.activity.push(`Deposited ${formatAmt(amount)} ${token}`);
         showToast(`Deposit successful — ${formatAmt(amount)} ${token}`);
@@ -667,10 +681,10 @@
         refreshUI();
       });
 
-      // Deposit using XAN balance: subtract from state.xan if enough
+      // Deposit using XAN balance: subtract from state.xan and create deposit for chosen token funded by XAN
       depositXanBtn.addEventListener('click', ()=> {
         const token = tokenSelect.value;
-        const amount = Number(amountInput.value);
+        const amount = parseFloat(amountInput.value);
         if(!amount || amount <= 0){
           showToast('Enter a valid amount');
           return;
@@ -680,7 +694,7 @@
           return;
         }
         state.xan -= amount;
-        const depositObj = { id: id(), token, amount: amount, ts: Date.now() };
+        const depositObj = { id: id(), token, amount: amount, ts: Date.now(), fundedByXan: true };
         state.deposits.push(depositObj);
         state.activity.push(`Deposited ${formatAmt(amount)} ${token} (funded by XAN)`);
         showToast(`Deposit successful — ${formatAmt(amount)} ${token} (from XAN)`);
@@ -696,14 +710,13 @@
         const idx = state.deposits.findIndex(d=>d.id === did);
         if(idx === -1) return;
         const d = state.deposits[idx];
-        // Withdraw logic: return to XAN if token is XAN, else just mark returned (simulation)
-        if(d.token === 'XAN'){
+        // If deposit was funded by XAN, refund XAN on withdraw
+        if(d.fundedByXan){
           state.xan += Number(d.amount);
-          state.activity.push(`Withdrew ${formatAmt(d.amount)} XAN back to balance`);
-          showToast(`Withdrew ${formatAmt(d.amount)} XAN to wallet`);
+          state.activity.push(`Withdrew ${formatAmt(d.amount)} ${d.token} — refunded ${formatAmt(d.amount)} XAN`);
+          showToast(`Withdrew ${formatAmt(d.amount)} ${d.token} — ${formatAmt(d.amount)} XAN refunded`);
         } else {
-          // returns to token balance (this prototype doesn't track per-token wallet, so we log activity)
-          state.activity.push(`Withdrew ${formatAmt(d.amount)} ${d.token} back to wallet`);
+          state.activity.push(`Withdrew ${formatAmt(d.amount)} ${d.token}`);
           showToast(`Withdrew ${formatAmt(d.amount)} ${d.token}`);
         }
         state.deposits.splice(idx,1);
@@ -717,10 +730,10 @@
           return;
         }
         const d = state.deposits.pop();
-        if(d.token === 'XAN'){
+        if(d.fundedByXan){
           state.xan += Number(d.amount);
-          state.activity.push(`Withdrew ${formatAmt(d.amount)} XAN back to balance`);
-          showToast(`Withdrew ${formatAmt(d.amount)} XAN`);
+          state.activity.push(`Withdrew ${formatAmt(d.amount)} ${d.token} — refunded ${formatAmt(d.amount)} XAN`);
+          showToast(`Withdrew ${formatAmt(d.amount)} ${d.token} — ${formatAmt(d.amount)} XAN refunded`);
         } else {
           state.activity.push(`Withdrew ${formatAmt(d.amount)} ${d.token}`);
           showToast(`Withdrew ${formatAmt(d.amount)} ${d.token}`);
@@ -734,25 +747,22 @@
           alert('No active deposits');
           return;
         }
-        const list = state.deposits.map(d=>`${formatAmt(d.amount)} ${d.token} — ${new Date(d.ts).toLocaleString()}`).join('\n');
+        const list = state.deposits.map((d,i)=>`${i+1}. ${formatAmt(d.amount)} ${d.token} ${d.fundedByXan?'(funded by XAN)':''} — ${new Date(d.ts).toLocaleString()}`).join('\n');
         alert('Active deposits:\n\n' + list);
       });
 
       // Earn Yield flow
       earnBtn.addEventListener('click', ()=>{
         const method = document.querySelector('input[name="earnMethod"]:checked').value;
-        // if no deposits, warn
         if(state.deposits.length === 0){
           showToast('No deposits yet — deposit first');
           return;
         }
-        // Show selection modal (simple prompt to choose deposit to apply)
-        let depositList = state.deposits.map((d,i)=>`${i+1}. ${formatAmt(d.amount)} ${d.token}`).join('\n');
+        let depositList = state.deposits.map((d,i)=>`${i+1}. ${formatAmt(d.amount)} ${d.token}${d.fundedByXan?' (funded by XAN)':''}`).join('\n');
         const pick = prompt(`Select deposit to apply ${method} (enter number):\n\n${depositList}`);
         if(!pick) { showToast('Cancelled'); return; }
         const idx = Number(pick) - 1;
         if(isNaN(idx) || idx < 0 || idx >= state.deposits.length){ showToast('Invalid selection'); return; }
-        // Simulate success and attach method
         state.deposits[idx].method = method;
         state.activity.push(`${method} started on ${formatAmt(state.deposits[idx].amount)} ${state.deposits[idx].token}`);
         showToast(`${method} successful for ${formatAmt(state.deposits[idx].amount)} ${state.deposits[idx].token}`);
